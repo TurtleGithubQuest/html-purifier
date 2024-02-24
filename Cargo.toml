@@ -15,3 +15,4 @@ edition = "2018"
 
 [dependencies]
 lol_html = "1.2.0"
+serde = { version = "1.0.195", features = ["derive"] }

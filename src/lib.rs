@@ -32,81 +32,84 @@
 
 use lol_html::html_content::{Comment, Element};
 use lol_html::{comments, element, rewrite_str, RewriteStrSettings};
+use serde::{Deserialize, Serialize};
 
-pub struct AllowedElement {
-    pub name: String,
-    pub attributes: Vec<String>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AllowedElement<'a> {
+    pub name: &'a str,
+    pub attributes: Vec<&'a str>,
 }
-
-pub struct Settings {
-    pub allowed: Vec<AllowedElement>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Settings<'a> {
+    #[serde(borrow)]
+    pub allowed: Vec<AllowedElement<'a>>,
     pub remove_comments: bool,
 }
 
-impl Default for Settings {
+impl<'a> Default for Settings<'a> {
     #[inline]
     fn default() -> Self {
         Settings {
             allowed: vec![
                 AllowedElement {
-                    name: "div".to_string(),
+                    name: "div",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "b".to_string(),
+                    name: "b",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "strong".to_string(),
+                    name: "strong",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "i".to_string(),
+                    name: "i",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "em".to_string(),
+                    name: "em",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "u".to_string(),
+                    name: "u",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "a".to_string(),
-                    attributes: vec!["href".to_string(), "title".to_string()],
+                    name: "a",
+                    attributes: vec!["href", "title"],
                 },
                 AllowedElement {
-                    name: "ul".to_string(),
+                    name: "ul",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "ol".to_string(),
+                    name: "ol",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "li".to_string(),
+                    name: "li",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "p".to_string(),
-                    attributes: vec!["style".to_string()],
+                    name: "p",
+                    attributes: vec!["style"],
                 },
                 AllowedElement {
-                    name: "br".to_string(),
+                    name: "br",
                     attributes: vec![],
                 },
                 AllowedElement {
-                    name: "span".to_string(),
-                    attributes: vec!["style".to_string()],
+                    name: "span",
+                    attributes: vec!["style"],
                 },
                 AllowedElement {
-                    name: "img".to_string(),
+                    name: "img",
                     attributes: vec![
-                        "width".to_string(),
-                        "height".to_string(),
-                        "alt".to_string(),
-                        "src".to_string(),
+                        "width",
+                        "height",
+                        "alt",
+                        "src",
                     ],
                 },
             ],
@@ -130,31 +133,29 @@ impl Default for Settings {
 /// ```
 pub fn purifier(input: &str, settings: Settings) -> String {
     let element_handler = |el: &mut Element| {
-        let find = settings.allowed.iter().find(|e| e.name.eq(&el.tag_name()));
-        match find {
-            Some(find) => {
-                let remove_attributes = el
-                    .attributes()
-                    .iter()
-                    .filter(|e| find.attributes.iter().any(|a| a.eq(&e.name())) == false)
-                    .map(|m| m.name())
-                    .collect::<Vec<String>>();
-                for attr in remove_attributes {
-                    el.remove_attribute(&attr);
-                }
+        if let Some(find) = settings.allowed.iter().find(|e| e.name.eq(&el.tag_name())) {
+            let remove_attributes: Vec<String> = el
+                .attributes()
+                .iter()
+                .filter(|attr| !find.attributes.contains(&&*attr.name()))
+                .map(|attr| attr.name())
+                .collect();
+            for attr in remove_attributes {
+                el.remove_attribute(&*attr);
             }
-            None => {
-                el.remove_and_keep_content();
-            }
+        } else {
+            el.remove_and_keep_content();
         }
         Ok(())
     };
+
     let comment_handler = |c: &mut Comment| {
         if settings.remove_comments {
             c.remove();
         }
         Ok(())
     };
+
     let output = rewrite_str(
         input,
         RewriteStrSettings {
@@ -166,7 +167,8 @@ pub fn purifier(input: &str, settings: Settings) -> String {
         },
     )
     .unwrap();
-    return output;
+
+    output
 }
 
 #[cfg(test)]
